@@ -1,167 +1,114 @@
 # Arcdrop
 
-A universal embedded wallet platform for **USDC tipping and subscriptions** using **Circle Modular Wallets**, **CCTP**, and **Arc gasless smart wallet execution**.
+Universal embedded wallet flows for USDC tipping and subscriptions, with developer-controlled wallets (Circle), Arc gasless execution, and CCTP bridging. Includes full mock mode for local demos.
 
-## Features
+## Key Features
 
-- 🔐 **Passkey Authentication**: Secure, passwordless authentication using WebAuthn
-- 💰 **USDC Payments**: Send tips and manage subscriptions with USDC
-- 🌐 **Multi-chain Support**: Works across Base, Polygon, and Avalanche networks
-- ⛽ **Gasless Transactions**: Powered by Arc for seamless user experience
-- 🔄 **Cross-chain Bridging**: CCTP integration for multi-chain USDC transfers
-- 📱 **Payment Links & QR Codes**: Simple payment links and QR codes for easy sharing
+- 💼 Developer-controlled wallets (Circle) with DB storage
+- 💸 USDC tips and subscriptions
+- ⛽ Gasless execution (Arc) in checkout flow
+- 🔀 CCTP cross-chain bridging with progress UI (mocked)
+- 🧪 Mock mode for end-to-end demos without Circle creds
 
-## Tech Stack
+## Tech
 
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
-- **UI**: TailwindCSS + shadcn/ui
-- **Database**: PostgreSQL + Prisma ORM
-- **Wallets**: Circle Modular Wallets (passkey-based smart contract accounts)
-- **Blockchain**: viem for Ethereum interactions
-- **Validation**: Zod
+- Next.js 16 (App Router), React 19, TypeScript
+- PostgreSQL + Prisma
+- Zod validation
 
-## Prerequisites
+## Quick Start
 
-- Node.js 18+ and npm
-- PostgreSQL database (Docker recommended)
-- Circle Modular Wallets account and credentials
-
-## Setup
-
-### 1. Install Dependencies
+1) Install
 
 ```bash
 npm install
 ```
 
-### 2. Database Setup
-
-Start PostgreSQL using Docker:
+2) Database
 
 ```bash
-docker run --name arcdrop-db \
-  -e POSTGRES_PASSWORD=secret \
-  -e POSTGRES_USER=arcdrop \
-  -e POSTGRES_DB=arcdrop \
-  -p 5434:5432 \
-  -d postgres:15
-```
-
-Run migrations:
-
-```bash
+docker run --name arcdrop-db -e POSTGRES_PASSWORD=secret -e POSTGRES_USER=arcdrop -e POSTGRES_DB=arcdrop -p 5434:5432 -d postgres:15
 npx prisma migrate dev
 ```
 
-### 3. Environment Variables
+3) Environment
 
-Create a `.env` file in the root directory:
+Create `.env`:
 
 ```env
 # Database
 DATABASE_URL="postgresql://arcdrop:secret@localhost:5434/arcdrop"
 
-# Circle Modular Wallets
-# Get these from: https://console.circle.com/modular-wallets
-MODULAR_CLIENT_URL="https://api.circle.com/v1/w3s/modular"
-MODULAR_CLIENT_KEY="your-client-key-here"
-MODULAR_DEFAULT_CHAIN="base-sepolia"
+# Mock mode (recommended for local demo)
+ARCDROP_MOCK_WALLETS=true
 
-# Application URL (optional, defaults to localhost:3000 in dev)
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+# Circle (only needed when not mocking)
+CIRCLE_API_BASE=https://api.circle.com
+CIRCLE_API_KEY=
+CIRCLE_BLOCKCHAIN=MATIC-AMOY
+# Either derive per-request via SDK or provide a fresh one-time ciphertext
+CIRCLE_ENTITY_SECRET=
+CIRCLE_ENTITY_SECRET_CIPHERTEXT=
 ```
 
-**Getting Circle Modular Wallets Credentials:**
-
-1. Sign up at [Circle Console](https://console.circle.com)
-2. Navigate to Modular Wallets section
-3. Create a new application
-4. Copy your `Client URL` and `Client Key`
-5. Add them to your `.env` file
-
-### 4. Run Development Server
+4) Dev
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+Open http://localhost:3000
 
-## Project Structure
+## Real vs Mock
 
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── api/               # API routes
-│   │   ├── modular/       # Modular wallet endpoints
-│   │   └── pay/           # Payment processing
-│   └── ...
-├── components/
-│   └── arcdrop/           # Arcdrop-specific components
-│       └── arcdrop-modal.tsx  # Universal checkout modal
-├── lib/
-│   ├── modular/           # Modular wallet utilities
-│   ├── payments.ts        # Payment processing logic
-│   └── ...
-└── types/                 # TypeScript type definitions
-```
-
-## How It Works
-
-1. **User Flow**:
-   - User clicks a payment link or scans QR code
-   - Enters payment details
-   - Authenticates with passkey (WebAuthn)
-   - Modular wallet is automatically created/retrieved
-   - Payment is processed via Circle + Arc (gasless)
-
-2. **Wallet Creation**:
-   - Uses Circle Modular Wallets SDK
-   - Passkey-based authentication (no passwords)
-   - Smart contract account wallets
-   - Deterministic addresses per user/network
-
-3. **Payment Processing**:
-   - USDC transfer via Circle
-   - Cross-chain bridging via CCTP (if needed)
-   - Gasless execution via Arc
-   - All transactions recorded in database
-
-## API Endpoints
-
-- `GET /api/modular/config` - Get modular wallet configuration
-- `POST /api/modular/wallet` - Sync wallet address to database
-- `POST /api/pay` - Process tip or subscription payment
-- `GET /api/payment-link/:slug` - Get payment link details
-- `POST /api/create-payment-link` - Create new payment link
-
-## Development
-
-### Database Migrations
+- Mock mode (`ARCDROP_MOCK_WALLETS=true`): All wallet ops and transfers are simulated in-memory; balances reflect transfers and fall back to DB-settled tips.
+- Real mode: Provide Circle envs. You can generate ciphertext via:
 
 ```bash
-# Create a new migration
-npx prisma migrate dev --name migration-name
-
-# Apply migrations
-npx prisma migrate deploy
-
-# Generate Prisma Client
-npx prisma generate
+npm run circle:ciphertext
 ```
 
-### Type Checking
+Copy the output to `CIRCLE_ENTITY_SECRET_CIPHERTEXT`.
+
+## API Surface
+
+- Wallet
+  - `POST /api/wallet/init`: Initialize/return wallet for an email
+  - `POST /api/wallet/balance`: { email? | walletAddress? } → balances
+- Payments
+  - `POST /api/payments/tip`: Tip flow
+  - `POST /api/payments/subscribe`: Subscription flow
+- CCTP
+  - `POST /api/cctp-transfer`: Mocked Burn → Attest → Mint steps
+- Creators
+  - `GET /api/creators/[id]`: Creator details by id or handle
+  - `GET /api/creators/id/[id]/wallets`: Auto-provision wallet if none
+
+## UI
+
+- `ArcdropModal` (checkout): server-driven wallet init; no passkey prompts
+- Creator page → Wallet tab:
+  - Shows wallet address + balance
+  - Withdraw button opens CCTP modal (mock flow)
+
+## Dev Tips
+
+- Reset DB:
+
+```bash
+npx prisma migrate reset --force --skip-generate
+```
+
+- Lint:
 
 ```bash
 npm run lint
 ```
 
-## Deployment
+## Notes
 
-1. Set environment variables in your hosting platform
-2. Run database migrations: `npx prisma migrate deploy`
-3. Build the application: `npm run build`
-4. Start the server: `npm start`
+- In mock mode, balances are in-memory and also fall back to summing SETTLED tips if needed.
+- In real mode, implement Circle “get balances by wallet id” if you want live onchain balances (stubbed in code).
 
 ## License
 
