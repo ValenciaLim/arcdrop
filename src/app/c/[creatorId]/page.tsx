@@ -48,32 +48,8 @@ export default async function CreatorPage({ params }: PageProps) {
 
       <CreatorActions creatorId={data.creator.id} />
 
-      {data.subscriptionTiers.length > 0 && (
-        <section className="space-y-4">
-          <div>
-            <p className="text-sm font-semibold text-zinc-500">
-              Subscription tiers
-            </p>
-            <h2 className="text-2xl font-semibold text-zinc-900">
-              Unlock exclusive drops
-            </h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {data.subscriptionTiers.map((tier) => {
-              const tierLink = subLinks.find(
-                (link) => link.tier?.id === tier.id,
-              );
-              return (
-                <SubscriptionTierCard
-                  key={tier.id}
-                  tier={tier}
-                  linkSlug={tierLink?.slug}
-                />
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* Subscription tiers & subscribers are shown inside the Subscriptions tab only */}
+
     </main>
   );
 }

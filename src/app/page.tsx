@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CreditCard, Coins, QrCode, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { WalletBalanceChecker } from "../components/arcdrop/wallet-balance-checker";
 import { GetStartedButton } from "@/components/arcdrop/get-started-button";
 
 const features = [
@@ -12,7 +13,7 @@ const features = [
   },
   {
     title: "Circle Smart Wallets",
-    body: "Users log in with email, we auto-provision wallets and custody USDC with Circle.",
+    body: "Users log in with passkey, we auto-provision wallets and custody USDC with Circle.",
     icon: Shield,
   },
   {
@@ -84,6 +85,23 @@ export default function Home() {
               </div>
             ))}
           </CardContent>
+        </Card>
+      </section>
+      
+      <section className="space-y-6">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            Wallet tools
+          </p>
+          <h2 className="text-2xl font-semibold text-zinc-900">
+            Check your embedded wallet balance
+          </h2>
+          <p className="text-sm text-zinc-500">
+            Enter your wallet address to preview balances for your embedded wallet.
+          </p>
+        </div>
+        <Card className="p-4">
+          <WalletBalanceChecker />
         </Card>
       </section>
 

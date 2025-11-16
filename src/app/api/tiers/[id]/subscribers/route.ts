@@ -2,27 +2,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export async function GET(_request: Request, { params }: Params) {
   try {
+    const { id } = await params;
     const subscriptions = await prisma.subscription.findMany({
-      where: { tierId: params.id },
+      where: { tierId: id },
       include: { user: true },
       orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({
-      subscribers: subscriptions.map((s) => ({
-        id: s.id,
-        userEmail: s.user.email,
-        status: s.status,
-        createdAt: s.createdAt.toISOString(),
-        lastPaymentAt: s.lastPaymentAt?.toISOString() ?? null,
-        nextBillingAt: s.nextBillingAt.toISOString(),
+      subscribers: subscriptions.map((s: any) => ({
+        id: s.id as string,
+        userEmail: s.user?.email as string,
+        status: s.status as string,
+        createdAt: (s.createdAt as Date).toISOString(),
+        lastPaymentAt: s.lastPaymentAt ? (s.lastPaymentAt as Date).toISOString() : null,
+        nextBillingAt: (s.nextBillingAt as Date).toISOString(),
       })),
     });
   } catch (error) {

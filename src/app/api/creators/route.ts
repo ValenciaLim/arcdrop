@@ -3,23 +3,34 @@ import { prisma } from "@/lib/prisma";
 import { createCreatorSchema } from "@/lib/validators";
 import { sanitizeHandle } from "@/lib/utils";
 import { getOrCreateUser } from "@/lib/auth";
+import { ensureCircleWallet } from "@/lib/circle";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get("email");
+    const walletAddress = searchParams.get("walletAddress");
 
-    if (!email) {
+    if (!email && !walletAddress) {
       return NextResponse.json(
-        { message: "Email parameter is required" },
+        { message: "Email or walletAddress parameter is required" },
         { status: 400 },
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { creatorProfile: true },
-    });
+    let user = null as any;
+    if (email) {
+      user = await prisma.user.findUnique({
+        where: { email },
+        include: { creatorProfile: true },
+      });
+    } else if (walletAddress) {
+      const wallet = await prisma.wallet.findUnique({
+        where: { circleWalletId: walletAddress },
+        include: { user: { include: { creatorProfile: true } } },
+      });
+      user = wallet?.user ?? null;
+    }
 
     if (!user || !user.creatorProfile) {
       return NextResponse.json({ creator: null }, { status: 200 });
@@ -67,6 +78,26 @@ export async function POST(request: Request) {
         avatarUrl: data.avatarUrl,
       },
     });
+
+    // Demo: automatically create and store a receiving wallet for the creator
+    try {
+      const circleWallet = await ensureCircleWallet(user.email, "BASE" as any);
+      await prisma.wallet.upsert({
+        where: { circleWalletId: circleWallet.id },
+        update: {
+          address: circleWallet.address,
+          network: circleWallet.network,
+        },
+        create: {
+          userId: user.id,
+          address: circleWallet.address,
+          circleWalletId: circleWallet.id,
+          network: circleWallet.network,
+        },
+      });
+    } catch {
+      // non-blocking for demo
+    }
 
     return NextResponse.json({ creator });
   } catch (error) {

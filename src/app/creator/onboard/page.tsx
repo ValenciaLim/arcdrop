@@ -1,54 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toModularTransport } from "@circle-fin/modular-wallets-core";
+import {
+  toPasskeyTransport,
+  toModularTransport,
+  toCircleModularWalletClient,
+  toWebAuthnCredential,
+  getModularWalletAddress,
+  WebAuthnMode,
+} from "@circle-fin/modular-wallets-core";
 import { createClient } from "viem";
-import { networkToModularChain } from "@/lib/modular/config";
-import useSWR from "swr";
-
-type ModularConfig = {
-  clientUrl: string;
-  clientKey: string;
-  defaultChain: string;
-};
-
-const fetcher = (url: string) =>
-  fetch(url).then((res) => {
-    if (!res.ok) throw new Error("Failed to load config");
-    return res.json();
-  });
+import { networkToModularChain, buildModularRpcUrl } from "@/lib/modular/config";
 
 export default function CreatorOnboard() {
   const router = useRouter();
-  const { data: configData } = useSWR<ModularConfig>(
-    "/api/modular/config",
-    fetcher,
-  );
+  const searchParams = useSearchParams();
+  const emailFromQuery = searchParams.get("email");
 
-  const [email, setEmail] = useState("");
-  const [network, setNetwork] = useState<"BASE" | "POLYGON" | "AVALANCHE">(
-    "BASE",
-  );
   const [status, setStatus] = useState<"idle" | "checking" | "onboarding" | "redirecting">(
     "idle",
   );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [walletAddress] = useState<string | null>(null);
-
-  // Preflight modular transport (no passkey, no owner auth)
-  const preflightModular = async (config: ModularConfig) => {
-    setStatusMessage("Initializing wallet transport…");
-    const modularChain = networkToModularChain(network);
-    const rpc = `${config.clientUrl}/${modularChain}`;
-    const transport = toModularTransport(rpc, config.clientKey);
-    // Creates a client instance; no network call required here
-    void createClient({ transport });
-  };
+  const email = emailFromQuery ?? undefined;
 
   /**
    * Check if user has a creator profile.
@@ -57,6 +35,7 @@ export default function CreatorOnboard() {
     setStatus("checking");
     setStatusMessage("Checking creator profile…");
 
+    if (!email) return null;
     const res = await fetch(`/api/creators?email=${encodeURIComponent(email)}`);
 
     if (!res.ok) {
@@ -67,133 +46,68 @@ export default function CreatorOnboard() {
     return data.creator;
   };
 
-  const handleAuthenticate = async () => {
-    if (!email) {
-      setError("Please enter your email");
-      return;
-    }
+  // Auto flow: if email present, try to find creator; otherwise show onboarding
+  useEffect(() => {
+    (async () => {
+      if (status !== "idle") return;
+      try {
+        if (email) {
+          setStatus("checking");
+          setStatusMessage("Checking your account…");
 
-    try {
-      setError(null);
-      // Step 1: Initialize modular transport (no passkey)
-      if (configData) {
-        await preflightModular(configData);
+          const creator = await checkCreatorProfile();
+          if (creator?.handle) {
+            setStatus("redirecting");
+            setStatusMessage("Redirecting to your creator portal…");
+            router.push(`/c/${creator.handle}`);
+            return;
+          }
+          setStatus("onboarding");
+          setStatusMessage("Please complete your creator profile");
+        } else {
+          // No email provided: proceed directly to onboarding form
+          setStatus("onboarding");
+          setStatusMessage("Please complete your creator profile");
+        }
+      } catch (e) {
+        setStatus("idle");
+        setError(e instanceof Error ? e.message : "Failed to continue with social login");
+        setStatusMessage(null);
       }
-
-      // Step 2: Check if user has creator profile
-      const creator = await checkCreatorProfile();
-
-      if (creator) {
-        // User has creator profile, redirect to their portal
-        setStatus("redirecting");
-        setStatusMessage("Redirecting to your creator portal…");
-        router.push(`/c/${creator.handle}`);
-      } else {
-        // User needs to create creator profile
-        setStatus("onboarding");
-        setStatusMessage("Please complete your creator profile");
-      }
-    } catch (err) {
-      setStatus("idle");
-      setError(err instanceof Error ? err.message : "Authentication failed");
-      setStatusMessage(null);
-    }
-  };
-
-  if (!configData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900 mx-auto mb-4" />
-          <p className="text-sm text-zinc-500">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+    })();
+  }, [email, router, status]);
 
   if (status === "onboarding") {
     return (
       <CreatorOnboardingForm
         email={email}
-        walletAddress={walletAddress!}
         onComplete={(handle) => router.push(`/c/${handle}`)}
       />
     );
   }
 
+  // Authenticated and processing
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center justify-center px-6">
-      <div className="w-full space-y-6">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-semibold text-zinc-900">
-            Creator Portal
-          </h1>
-          <p className="text-sm text-zinc-500">
-            Sign in with your embedded wallet to access your creator dashboard
-          </p>
-        </div>
-
-        <div className="space-y-4 rounded-3xl border border-zinc-100 bg-white p-6 shadow-lg">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={status !== "idle"}
-              required
-            />
-          </div>
-
-        {/* Network selection removed: Arc-only path */}
-
-          {error && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          {statusMessage && (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-              {statusMessage}
-            </div>
-          )}
-
-          <Button
-            onClick={handleAuthenticate}
-            disabled={!email || status !== "idle"}
-            className="w-full"
-          >
-            {status === "idle"
-              ? "Continue"
-              : status === "checking"
-                ? "Checking profile…"
-                : "Redirecting…"}
-          </Button>
-        </div>
-
-        <p className="text-center text-xs text-zinc-500">
-          Wallet creation will occur later in the flow. No passkey is required on this step.
-        </p>
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900" />
+        <p className="text-sm text-zinc-500">{statusMessage ?? "Loading…"}</p>
       </div>
-    </main>
+    </div>
   );
 }
 
 function CreatorOnboardingForm({
   email,
-  walletAddress,
   onComplete,
 }: {
-  email: string;
-  walletAddress: string;
+  email?: string;
   onComplete: (handle: string) => void;
 }) {
   const [displayName, setDisplayName] = useState("");
   const [handle, setHandle] = useState("");
   const [bio, setBio] = useState("");
+  const [emailInput, setEmailInput] = useState(email ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -208,12 +122,15 @@ function CreatorOnboardingForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email,
-          displayName,
-          handle,
-          bio: bio || undefined,
-        }),
+        body: JSON.stringify(
+          {
+            displayName,
+            handle,
+            bio: bio || undefined,
+            // Backend requires email to create a user -> ensure we send a value
+            email: (email ?? emailInput).trim(),
+          },
+        ),
       });
 
       if (!res.ok) {
@@ -222,6 +139,70 @@ function CreatorOnboardingForm({
       }
 
       const data = await res.json();
+      // Ensure embedded wallet is created and attached to this creator
+      try {
+        let walletAddress: string | null = null;
+        const stored = window.localStorage.getItem("arcdrop:lastWallet");
+        if (stored) {
+          walletAddress = (JSON.parse(stored).address as string) ?? null;
+        }
+        if (!walletAddress) {
+          // Fallback: derive with passkey now
+          const cfgRes = await fetch("/api/modular/config");
+          if (cfgRes.ok) {
+            const configData: { clientUrl: string; clientKey: string } = await cfgRes.json();
+            const passkeyTransport = toPasskeyTransport(configData.clientUrl, configData.clientKey);
+            let credential;
+            try {
+              // Prefer registration first to allow QR-based creation from desktop
+              credential = await toWebAuthnCredential({
+                transport: passkeyTransport,
+                mode: WebAuthnMode.Register,
+              });
+            } catch {
+              // Fallback to login if a passkey already exists
+              credential = await toWebAuthnCredential({
+                transport: passkeyTransport,
+                mode: WebAuthnMode.Login,
+              });
+            }
+            const chain = networkToModularChain("BASE");
+            const rpc = buildModularRpcUrl(configData.clientUrl, chain);
+            const transport = toModularTransport(rpc, configData.clientKey);
+            const client = createClient({ transport });
+            const mw = toCircleModularWalletClient({ client });
+            const { toWebAuthnAccount } = await import("viem/account-abstraction");
+            const owner = toWebAuthnAccount({ credential });
+            const wallet = await getModularWalletAddress({
+              client: mw,
+              owner,
+              name: `Arcdrop-BASE`,
+            } as any);
+            walletAddress = wallet.address;
+            try {
+              window.localStorage.setItem(
+                "arcdrop:lastWallet",
+                JSON.stringify({ address: walletAddress, network: "BASE" }),
+              );
+            } catch {
+              /* noop */
+            }
+          }
+        }
+        if (walletAddress) {
+          await fetch("/api/modular/wallet", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              creatorId: data.creator.id,
+              walletAddress,
+              network: "BASE",
+            }),
+          });
+        }
+      } catch {
+        // non-blocking
+      }
       onComplete(data.creator.handle);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create profile");
@@ -245,6 +226,20 @@ function CreatorOnboardingForm({
           onSubmit={handleSubmit}
           className="space-y-4 rounded-3xl border border-zinc-100 bg-white p-6 shadow-lg"
         >
+          {!email && (
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="displayName">Display Name</Label>
             <Input

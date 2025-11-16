@@ -8,12 +8,14 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "circle:ciphertext": "tsx scripts/generate-ciphertext.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@circle-fin/developer-controlled-wallets": "^9.3.0",
     "@circle-fin/modular-wallets-core": "^1.0.12",
     "@prisma/client": "^5.20.0",
     "@radix-ui/react-dialog": "^1.1.1",
@@ -22,6 +24,7 @@
     "lucide-react": "^0.453.0",
     "nanoid": "^5.0.7",
     "next": "16.0.3",
+    "next-auth": "^4.24.13",
     "qrcode.react": "^4.1.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",

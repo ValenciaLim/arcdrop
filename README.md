@@ -110,7 +110,7 @@ src/
 
 1. **User Flow**:
    - User clicks a payment link or scans QR code
-   - Enters email and payment details
+   - Enters payment details
    - Authenticates with passkey (WebAuthn)
    - Modular wallet is automatically created/retrieved
    - Payment is processed via Circle + Arc (gasless)

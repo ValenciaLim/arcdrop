@@ -16,8 +16,7 @@ export function formatUsd(value: number | string) {
   const amount =
     typeof value === "number" ? value : Number.parseFloat(value ?? "0");
   return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+    style: "decimal", 
     minimumFractionDigits: 2,
   }).format(amount);
 }

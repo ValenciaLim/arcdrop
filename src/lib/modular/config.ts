@@ -30,3 +30,26 @@ export function networkToModularChain(network: string): string {
   return mapping[network] ?? "base-sepolia";
 }
 
+/**
+ * Build the correct Modular RPC URL for a given chain from the configured clientUrl.
+ * If the URL already ends with a known chain (e.g. `/base-sepolia`), return as-is.
+ * Otherwise, append `/<chain>` to the base clientUrl.
+ */
+export function buildModularRpcUrl(clientUrl: string, chain: string): string {
+  const base = (clientUrl || "").replace(/\/+$/, "");
+  const knownChains = [
+    "base-sepolia",
+    "polygon-amoy",
+    "avalanche-fuji",
+    "base",
+    "polygon",
+    "avalanche",
+  ];
+
+  const endsWithKnownChain = knownChains.some((c) =>
+    new RegExp(`/${c}$`, "i").test(base),
+  );
+
+  return endsWithKnownChain ? base : `${base}/${chain}`;
+}
+

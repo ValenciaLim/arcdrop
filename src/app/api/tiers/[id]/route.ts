@@ -2,20 +2,24 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export async function DELETE(_request: Request, { params }: Params) {
   try {
-    // Remove payment links tied to this tier, then the tier itself
+    const { id } = await params;
+    // Remove dependent records tied to this tier, then the tier itself
+    await prisma.subscription.deleteMany({
+      where: { tierId: id },
+    });
     await prisma.paymentLink.deleteMany({
-      where: { tierId: params.id },
+      where: { tierId: id },
     });
 
     const deleted = await prisma.subscriptionTier.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ deleted: { id: deleted.id } });

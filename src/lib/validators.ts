@@ -32,7 +32,8 @@ export const paymentLinkSchema = z.object({
 export const payRequestSchema = z.object({
   linkSlug: z.string().min(4),
   userEmail: z.string().email(),
-  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  // Optional in demo; if provided, we won't regex-validate to avoid blocking mocks
+  walletAddress: z.string().optional(),
   amount: z.number().positive().optional(),
   tierId: z.string().cuid().optional(),
   network: z.enum(["BASE", "POLYGON", "AVALANCHE"]).default("BASE"),

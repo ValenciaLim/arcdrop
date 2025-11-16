@@ -5,7 +5,7 @@ import {
   TipStatus,
 } from "@prisma/client";
 import { prisma } from "./prisma";
-import { transferUSDC } from "./circle";
+import { transferUSDC, ensureCircleWallet } from "./circle";
 import { executeGaslessTransaction } from "./arc";
 import { bridgeUSDC } from "./cctp";
 import { getOrCreateUser } from "./auth";
@@ -13,7 +13,7 @@ import { getOrCreateUser } from "./auth";
 export async function processTip(params: {
   linkSlug: string;
   userEmail: string;
-  walletAddress: string;
+  walletAddress?: string;
   amount?: number;
   network: Network;
 }) {
@@ -37,32 +37,49 @@ export async function processTip(params: {
 
   const user = await getOrCreateUser(params.userEmail);
 
-  // Look up user's modular wallet by address
-  const userWallet = await prisma.wallet.findFirst({
-    where: {
-      userId: user.id,
-      address: params.walletAddress,
-      network: params.network,
-    },
-  });
+  // Resolve or create user's wallet (demo-friendly)
+  let userWallet =
+    (params.walletAddress
+      ? await prisma.wallet.findFirst({
+          where: {
+            userId: user.id,
+            address: params.walletAddress,
+            network: params.network,
+          },
+        })
+      : null) ?? null;
 
   if (!userWallet) {
-    throw new Error(
-      `Wallet ${params.walletAddress} not found for user ${params.userEmail} on ${params.network}`,
-    );
+    // Create a developer-controlled wallet for the user if none exists
+    const circle = await ensureCircleWallet(user.email, params.network);
+    userWallet = await prisma.wallet.upsert({
+      where: { circleWalletId: circle.id },
+      update: { address: circle.address, network: circle.network },
+      create: {
+        userId: user.id,
+        address: circle.address,
+        circleWalletId: circle.id,
+        network: circle.network,
+      },
+    });
   }
 
   // Look up or create creator wallet (for now, use first wallet or create placeholder)
   const creatorWallet =
     link.creator.user.wallets.find((w) => w.network === params.network) ??
-    (await prisma.wallet.create({
-      data: {
-        userId: link.creator.user.id,
-        address: `0x${"0".repeat(40)}`, // Placeholder - creator should set up their wallet
-        circleWalletId: `0x${"0".repeat(40)}`,
-        network: params.network,
-      },
-    }));
+    (await (async () => {
+      const circle = await ensureCircleWallet(link.creator.user.email, params.network);
+      return prisma.wallet.upsert({
+        where: { circleWalletId: circle.id },
+        update: { address: circle.address, network: circle.network },
+        create: {
+          userId: link.creator.user.id,
+          address: circle.address,
+          circleWalletId: circle.id,
+          network: circle.network,
+        },
+      });
+    })());
 
   const tip = await prisma.tip.create({
     data: {
@@ -112,7 +129,7 @@ export async function processTip(params: {
 export async function processSubscription(params: {
   linkSlug: string;
   userEmail: string;
-  walletAddress: string;
+  walletAddress?: string;
   network: Network;
 }) {
   const link = await prisma.paymentLink.findUnique({
@@ -133,19 +150,29 @@ export async function processSubscription(params: {
 
   const user = await getOrCreateUser(params.userEmail);
 
-  // Look up user's modular wallet by address
-  const userWallet = await prisma.wallet.findFirst({
-    where: {
-      userId: user.id,
-      address: params.walletAddress,
-      network: params.network,
-    },
-  });
-
+  // Resolve or create user's wallet (demo-friendly)
+  let userWallet =
+    (params.walletAddress
+      ? await prisma.wallet.findFirst({
+          where: {
+            userId: user.id,
+            address: params.walletAddress,
+            network: params.network,
+          },
+        })
+      : null) ?? null;
   if (!userWallet) {
-    throw new Error(
-      `Wallet ${params.walletAddress} not found for user ${params.userEmail} on ${params.network}`,
-    );
+    const circle = await ensureCircleWallet(user.email, params.network);
+    userWallet = await prisma.wallet.upsert({
+      where: { circleWalletId: circle.id },
+      update: { address: circle.address, network: circle.network },
+      create: {
+        userId: user.id,
+        address: circle.address,
+        circleWalletId: circle.id,
+        network: circle.network,
+      },
+    });
   }
 
   const subscription = await prisma.subscription.upsert({
@@ -177,14 +204,19 @@ export async function processSubscription(params: {
   // Look up or create creator wallet (for now, use first wallet or create placeholder)
   const creatorWallet =
     link.creator.user.wallets.find((w) => w.network === params.network) ??
-    (await prisma.wallet.create({
-      data: {
-        userId: link.creator.user.id,
-        address: `0x${"0".repeat(40)}`, // Placeholder - creator should set up their wallet
-        circleWalletId: `0x${"0".repeat(40)}`,
-        network: params.network,
-      },
-    }));
+    (await (async () => {
+      const circle = await ensureCircleWallet(link.creator.user.email, params.network);
+      return prisma.wallet.upsert({
+        where: { circleWalletId: circle.id },
+        update: { address: circle.address, network: circle.network },
+        create: {
+          userId: link.creator.user.id,
+          address: circle.address,
+          circleWalletId: circle.id,
+          network: circle.network,
+        },
+      });
+    })());
 
   // CCTP bridging disabled: Arc-only network flow
 

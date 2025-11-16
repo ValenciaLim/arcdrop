@@ -8,16 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatUsd } from "@/lib/utils";
 import type { PaymentLinkDetail } from "@/types/arcdrop";
-import {
-  toPasskeyTransport,
-  toModularTransport,
-  toCircleModularWalletClient,
-  toWebAuthnCredential,
-  getModularWalletAddress,
-  WebAuthnMode,
-} from "@circle-fin/modular-wallets-core";
-import { createClient } from "viem";
-import { networkToModularChain } from "@/lib/modular/config";
+import { networkToModularChain, buildModularRpcUrl } from "@/lib/modular/config";
 
 type ModalState = "idle" | "loading" | "success" | "error";
 
@@ -72,112 +63,38 @@ export function ArcdropModal({ linkSlug }: ArcdropModalProps) {
     status !== "loading" &&
     !isAuthenticating;
 
-  /**
-   * Authenticate user with passkey (login or register).
-   */
-  const authenticateWithPasskey = async (config: ModularConfig) => {
-    setIsAuthenticating(true);
-    setStatusMessage("Authenticating with passkey…");
-
-    try {
-      const passkeyTransport = toPasskeyTransport(config.clientUrl, config.clientKey);
-
-      // Try login first
-      try {
-        const credential = await toWebAuthnCredential({
-          transport: passkeyTransport,
-          mode: WebAuthnMode.Login,
-        });
-        setStatusMessage("Passkey login successful");
-        return credential;
-      } catch (loginError) {
-        // If login fails, try registration
-        setStatusMessage("Creating new passkey…");
-        const credential = await toWebAuthnCredential({
-          transport: passkeyTransport,
-          username: email,
-          mode: WebAuthnMode.Register,
-        });
-        setStatusMessage("Passkey created successfully");
-        return credential;
-      }
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  /**
-   * Get or create modular wallet address for the authenticated user.
-   */
-  const ensureModularWallet = async (
-    config: ModularConfig,
-    credential: Awaited<ReturnType<typeof toWebAuthnCredential>>,
-  ) => {
-    setStatusMessage("Setting up modular wallet…");
-
-    const modularChain = networkToModularChain(network);
-    const modularTransport = toModularTransport(
-      `${config.clientUrl}/${modularChain}`,
-      config.clientKey,
-    );
-
-    const viemClient = createClient({ transport: modularTransport });
-    const modularClient = toCircleModularWalletClient({ client: viemClient });
-
-    // Create WebAuthn account from credential
-    const { toWebAuthnAccount } = await import("viem/account-abstraction");
-    const webAuthnAccount = toWebAuthnAccount({ credential });
-
-    // Get or create wallet address
-    const wallet = await getModularWalletAddress({
-      client: modularClient,
-      owner: webAuthnAccount,
-      name: `Arcdrop-${network}`,
-    });
-
-    return wallet.address;
-  };
-
-  /**
-   * Sync wallet address to backend.
-   */
-  const syncWalletToBackend = async (address: string) => {
-    const res = await fetch("/api/modular/wallet", {
+  // Remove passkey; use server-side init to resolve or create wallet
+  const resolveWalletServerSide = async (): Promise<string> => {
+    setStatusMessage("Initializing wallet…");
+    const res = await fetch("/api/wallet/init", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        walletAddress: address,
-        network,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, network }),
     });
-
     if (!res.ok) {
-      const body = await res.json();
-      throw new Error(body?.message ?? "Failed to sync wallet");
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.message ?? "Failed to initialize wallet");
     }
+    const payload = (await res.json()) as {
+      wallet: { address: string };
+    };
+    return payload.wallet.address;
   };
+
+  // Skip modular wallet sync in mock mode
 
   const handlePay = async () => {
     if (!readyToPay || !configData) return;
 
     try {
       setStatus("loading");
-      setStatusMessage("Authenticating with passkey…");
+      setStatusMessage("Preparing checkout…");
 
-      // Step 1: Authenticate with passkey
-      const credential = await authenticateWithPasskey(configData);
-
-      // Step 2: Get or create modular wallet
-      const address = await ensureModularWallet(configData, credential);
+      // Step 1: Resolve wallet server-side (no passkey)
+      const address = await resolveWalletServerSide();
       setWalletAddress(address);
 
-      // Step 3: Sync wallet to backend
-      await syncWalletToBackend(address);
-
-      // Step 4: Process payment
+      // Step 2: Process payment
       setStatusMessage("Processing gasless transfer via Arc…");
 
       const payload = {

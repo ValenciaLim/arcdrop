@@ -9,13 +9,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatUsd } from "@/lib/utils";
 import type { PaymentLinkSummary } from "@/types/arcdrop";
 import { TipButton } from "./tip-button";
-import { SubscribeButton } from "./subscribe-button";
 import { QRCode } from "../qr-code";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import useSWR from "swr";
 
 type CreatorCardProps = {
   creator: {
@@ -42,6 +41,13 @@ export function CreatorCard({
     ? `${baseUrl}/subscribe/${subscriptionLink.slug}`
     : null;
   const qrValue = tipUrl ?? subUrl ?? "";
+
+  const fetcher = (url: string) => fetch(url).then((r) => r.json());
+  const { data: walletsData } = useSWR<{ wallets: { address: string; network: string }[] }>(
+    `/api/creators/id/${creator.id}/wallets`,
+    fetcher,
+  );
+  const primaryWallet = walletsData?.wallets?.[0]?.address;
 
   const copy = async (text: string, key: string) => {
     try {
@@ -95,6 +101,20 @@ export function CreatorCard({
             <div>
               <CardTitle>{creator.displayName}</CardTitle>
               <CardDescription>@{creator.handle}</CardDescription>
+              {primaryWallet && (
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  <span className="truncate text-zinc-500">
+                    {primaryWallet}
+                  </span>
+                  <Button
+                    className="px-2 py-1 text-xs"
+                    variant="outline"
+                    onClick={() => copy(primaryWallet, "wallet")}
+                  >
+                    {copiedKey === "wallet" ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
