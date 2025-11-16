@@ -1,65 +1,111 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, CreditCard, Coins, QrCode, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { GetStartedButton } from "@/components/arcdrop/get-started-button";
+
+const features = [
+  {
+    title: "Universal checkout",
+    body: "Create one link and receive tips or subscriptions anywhere. Works across social profiles, streams, or websites.",
+    icon: CreditCard,
+  },
+  {
+    title: "Circle Smart Wallets",
+    body: "Users log in with email, we auto-provision wallets and custody USDC with Circle.",
+    icon: Shield,
+  },
+  {
+    title: "Arc gasless execution",
+    body: "Sign once to let Arc abstract gas and orchestration for every payment.",
+    icon: Coins,
+  },
+  {
+    title: "QR-ready for IRL",
+    body: "Download dynamic QR codes for merch booths, events, or printed menus.",
+    icon: QrCode,
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-16 px-6 py-20">
+      <section className="grid gap-8 lg:grid-cols-[3fr_2fr]">
+        <div className="space-y-8">
+          <p className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-wider shadow-sm backdrop-blur">
+            Gasless USDC payouts
+          </p>
+          <div className="space-y-6">
+            <h1 className="text-5xl font-semibold leading-tight text-zinc-950">
+              Arcdrop embeds USDC tips & subscriptions anywhere a link fits.
+            </h1>
+            <p className="text-lg text-zinc-600">
+              Share a payment link or QR, let fans pay with Circle wallets, and
+              route funds cross-chain via CCTP. No embedded widget, no gas,
+              fully portable.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <GetStartedButton />
+          </div>
+          <p className="text-sm text-zinc-500">
+            Powered by Circle Smart Wallets, Arc gasless execution, and CCTP
+            bridge contracts.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <Card className="h-fit space-y-6 border-white/60 bg-white/95 p-6 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.5)]">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-zinc-500">Live example</p>
+            <h2 className="text-2xl font-semibold text-zinc-900">Checkout link</h2>
+          </div>
+          <div className="rounded-3xl border border-zinc-100 bg-gradient-to-br from-emerald-50 to-white p-6">
+            <p className="text-sm font-semibold text-emerald-700">Scan to tip</p>
+            <div className="mt-4 flex items-center gap-4">
+              <div className="grid h-28 w-28 place-items-center rounded-2xl bg-white shadow-inner">
+                <QrCode className="h-12 w-12 text-emerald-600" />
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="font-semibold text-zinc-900">socials.link/arcdrop</p>
+                <p className="text-zinc-500">Works on mobile and desktop.</p>
+              </div>
+            </div>
+          </div>
+          <CardContent className="space-y-4 p-0">
+            {features.slice(0, 2).map((feature) => (
+              <div key={feature.title} className="flex items-start gap-4">
+                <feature.icon className="mt-1 h-5 w-5 text-zinc-400" />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-800">
+                    {feature.title}
+                  </p>
+                  <p className="text-sm text-zinc-500">{feature.body}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-8">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            Why creators switch
+          </p>
+          <h2 className="text-3xl font-semibold text-zinc-900">
+            Portable payment links that feel like native checkout.
+          </h2>
         </div>
-      </main>
-    </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {features.map((feature) => (
+            <Card key={feature.title} className="space-y-4">
+              <feature.icon className="h-6 w-6 text-zinc-400" />
+              <h3 className="text-xl font-semibold">{feature.title}</h3>
+              <p className="text-sm text-zinc-500">{feature.body}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }

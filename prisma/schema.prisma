@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Network {
+  BASE
+  POLYGON
+  AVALANCHE
+}
+
+enum PaymentLinkType {
+  TIP
+  SUBSCRIPTION
+}
+
+enum TipStatus {
+  PENDING
+  SETTLED
+  FAILED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+model User {
+  id               String             @id @default(cuid())
+  email            String             @unique
+  name             String?
+  wallets          Wallet[]
+  creatorProfile   CreatorProfile?
+  tips             Tip[]              @relation("TipSender")
+  subscriptions    Subscription[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+model CreatorProfile {
+  id                String             @id @default(cuid())
+  handle            String             @unique
+  displayName       String
+  bio               String?
+  avatarUrl         String?
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id])
+  paymentLinks      PaymentLink[]
+  subscriptionTiers SubscriptionTier[]
+  tips              Tip[]              @relation("CreatorTips")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model Wallet {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  circleWalletId String   @unique
+  network        Network  @default(BASE)
+  address        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model PaymentLink {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  creatorId   String
+  creator     CreatorProfile   @relation(fields: [creatorId], references: [id])
+  type        PaymentLinkType
+  title       String
+  description String?
+  amount      Decimal?
+  tierId      String?
+  tier        SubscriptionTier? @relation(fields: [tierId], references: [id])
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  tips        Tip[]
+}
+
+model Tip {
+  id             String        @id @default(cuid())
+  creatorId      String
+  creator        CreatorProfile @relation("CreatorTips", fields: [creatorId], references: [id])
+  paymentLinkId  String?
+  paymentLink    PaymentLink?  @relation(fields: [paymentLinkId], references: [id])
+  fromUserId     String?
+  fromUser       User?         @relation("TipSender", fields: [fromUserId], references: [id])
+  amount         Decimal
+  currency       String        @default("USDC")
+  txHash         String?
+  status         TipStatus     @default(PENDING)
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model SubscriptionTier {
+  id                String         @id @default(cuid())
+  creatorId         String
+  creator           CreatorProfile @relation(fields: [creatorId], references: [id])
+  name              String
+  description       String?
+  amount            Decimal
+  intervalDays      Int
+  paymentLinks      PaymentLink[]
+  subscriptions     Subscription[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Subscription {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id])
+  tierId         String
+  tier           SubscriptionTier    @relation(fields: [tierId], references: [id])
+  status         SubscriptionStatus  @default(ACTIVE)
+  nextBillingAt  DateTime
+  lastPaymentAt  DateTime?
+  arcSessionId   String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  payments       Json?
+
+  @@unique([userId, tierId])
+}
+
