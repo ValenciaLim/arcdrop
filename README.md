@@ -5,9 +5,18 @@ Universal embedded wallet flows for USDC tipping and subscriptions, with develop
 ## Key Features
 
 - 💼 Developer-controlled wallets (Circle) with DB storage
+  <img width="767" height="306" alt="image" src="https://github.com/user-attachments/assets/a896c2c6-9501-4b2d-8649-b72c182faced" />
+
 - 💸 USDC tips and subscriptions
+  <img width="815" height="323" alt="image" src="https://github.com/user-attachments/assets/ab797857-45b4-4541-843e-73fdf8da55ee" />
+  <img width="745" height="509" alt="image" src="https://github.com/user-attachments/assets/4bbb8d0d-dc3d-42b6-bb65-87730013b7d5" />
+
 - ⛽ Gasless execution (Arc) in checkout flow
+<img width="769" height="500" alt="image" src="https://github.com/user-attachments/assets/e03c0ff4-fd7f-4f66-bbb6-6d2380239d0c" />
+  
 - 🔀 CCTP cross-chain bridging with progress UI (mocked)
+  <img width="626" height="407" alt="image" src="https://github.com/user-attachments/assets/2eab9534-0e2a-4bdb-bb3c-178495c52d1d" />
+
 - 🧪 Mock mode for end-to-end demos without Circle creds
 
 ## Tech
